@@ -32,7 +32,7 @@ const CONFIG = {
   GO_API_BASE: 'https://api.openmetrolinx.com/OpenDataAPI',
 
   // Bronte GO station code on Lakeshore West line
-  BRONTE_STOP_CODE: 'BR',
+  BRONTE_STOP_CODE: 'BO', // Confirmed: BO = Bronte GO Train Station (BR = Brampton!)
   LINE_CODE: 'LW',
 
   // Monitoring window
@@ -103,7 +103,11 @@ async function fetchServiceAlerts() {
   try {
     const url = apiUrl('/api/V1/ServiceUpdate/ServiceAlert/All');
     const { data } = await axios.get(url, { timeout: 10000 });
-    return data?.ServiceAlerts || data?.Alerts || data?.entity || [];
+    // Confirmed response shape: { Messages: { Message: [...] } }
+    const messages = data?.Messages?.Message;
+    if (Array.isArray(messages)) return messages;
+    if (messages && typeof messages === 'object') return [messages];
+    return [];
   } catch (err) {
     console.error('[GO API] ServiceAlerts fetch failed:', err.message);
     return [];
@@ -119,7 +123,11 @@ async function fetchLiveTrains() {
   try {
     const url = apiUrl('/api/V1/ServiceataGlance/Trains/All');
     const { data } = await axios.get(url, { timeout: 10000 });
-    return data?.Trips || [];
+    // Response shape: { Trips: { Trip: [...] } } or { Trips: [...] }
+    const trips = data?.Trips?.Trip || data?.Trips;
+    if (Array.isArray(trips)) return trips;
+    if (trips && typeof trips === 'object') return [trips];
+    return [];
   } catch (err) {
     console.error('[GO API] LiveTrains fetch failed:', err.message);
     return [];
@@ -269,12 +277,15 @@ async function checkTrains() {
 
   // 3. Line-wide LW service alerts
   const lwAlerts = alerts.filter(a => {
-    const alertStr = JSON.stringify(a).toUpperCase();
-    return alertStr.includes('LW') || alertStr.includes('LAKESHORE WEST') || alertStr.includes('BRONTE');
+    // Filter to LW line alerts or alerts mentioning Bronte GO (code BO)
+    const linesMatch = (a.Lines || []).some(l => l.Code === 'LW');
+    const stopsMatch = (a.Stops || []).some(s => s.Code === 'BO');
+    const textMatch = (a.SubjectEnglish || a.BodyEnglish || '').toUpperCase().includes('BRONTE');
+    return linesMatch || stopsMatch || textMatch;
   });
 
   for (const alert of lwAlerts) {
-    const alertMsg = alert.HeaderText || alert.DescriptionText || alert.Message || alert.Title || '';
+    const alertMsg = alert.SubjectEnglish || alert.BodyEnglish || alert.HeaderText || alert.Message || '';
     const alertKey = `${new Date().toDateString()}-alert-${alertMsg.slice(0, 40)}`;
     if (alertMsg && !state.notifiedTrips.has(alertKey)) {
       state.notifiedTrips.add(alertKey);
