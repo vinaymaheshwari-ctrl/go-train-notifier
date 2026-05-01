@@ -84,11 +84,12 @@ async function fetchBronteNextService() {
   try {
     const url = apiUrl(`/api/V1/Stop/NextService/${CONFIG.BRONTE_STOP_CODE}`);
     const { data } = await axios.get(url, { timeout: 10000 });
-    // Returns { NextService: { Lines: [ { Trips: [...] } ] } }
-    const lines = data?.NextService?.Lines || [];
-    // Flatten all trips across all lines
-    const allTrips = lines.flatMap(line => line.Trips || []);
-    return allTrips;
+    // Confirmed response: { NextService: { Lines: [ ...trip entries... ] } }
+    // Lines is a flat array of trip objects (not nested — each entry IS a trip)
+    const lines = data?.NextService?.Lines;
+    if (Array.isArray(lines)) return lines;
+    if (lines && typeof lines === 'object') return [lines];
+    return [];
   } catch (err) {
     console.error('[GO API] NextService fetch failed:', err.message);
     return [];
@@ -190,21 +191,12 @@ async function checkTrains() {
   state.lastCheck = new Date().toISOString();
   console.log(`[Check] ${new Date().toLocaleTimeString('en-CA', { timeZone: 'America/Toronto' })}`);
 
-  // Fetch everything in parallel
-  const [nextService, liveTrains, alerts, exceptions] = await Promise.all([
+  // Fetch in parallel — no longer need liveTrains, NextService has everything
+  const [nextService, alerts, exceptions] = await Promise.all([
     fetchBronteNextService(),
-    fetchLiveTrains(),
     fetchServiceAlerts(),
     fetchExceptions(),
   ]);
-
-  // Build a map of tripNumber → delay from ServiceataGlance (seconds → minutes)
-  const delayMap = {};
-  for (const trip of liveTrains) {
-    const tripNum = String(trip.TripNumber || trip.TripNo || '');
-    const delay = trip.DelayDeviation || 0;
-    if (tripNum) delayMap[tripNum] = Math.max(0, Math.round(Number(delay) / 60));
-  }
 
   // Build a set of cancelled trip numbers from exceptions
   const cancelledTrips = new Set(
@@ -213,32 +205,46 @@ async function checkTrains() {
       .map(e => String(e.TripNumber || e.TripNo))
   );
 
-  // Filter to morning Bronte → Union trains only
-  // NextService returns ScheduledDepartureTime, EstimatedDepartureTime, DelayMinutes
+  // Filter to morning Bronte → Union trains only (DirectionName contains Union)
   const morningTrips = nextService.filter(trip => {
-    const time = trip.ScheduledDepartureTime || trip.DepartureTime || '';
-    return isMorningTrain(time);
+    const sched = trip.ScheduledDepartureTime || '';
+    // Extract HH:MM from "2026-05-01 07:47:00"
+    const timePart = sched.includes(' ') ? sched.split(' ')[1] : sched;
+    const toUnion = (trip.DirectionName || '').toUpperCase().includes('UNION');
+    return isMorningTrain(timePart) && toUnion;
   });
 
-  // Build trainStatuses for dashboard + alert checking
-  // NextService already provides EstimatedDepartureTime and DelayMinutes directly
+  // Build trainStatuses
+  // ComputedDepartureTime = estimated time already factoring in delays
+  // Delay = difference between Computed and Scheduled in minutes
   state.trainStatuses = morningTrips.map(trip => {
-    const tripNum = String(trip.TripNumber || trip.TripNo || '');
-    const scheduled = (trip.ScheduledDepartureTime || trip.DepartureTime || '').slice(0, 5);
-    // Prefer DelayMinutes from NextService, fall back to ServiceataGlance delayMap
-    const delayMins = Number(trip.DelayMinutes || delayMap[tripNum] || 0);
-    const cancelled = cancelledTrips.has(tripNum) || trip.Status === 'Cancelled';
-    const estimated = trip.EstimatedDepartureTime
-      ? trip.EstimatedDepartureTime.slice(0, 5)
-      : addMinsToTime(scheduled, delayMins);
+    const tripNum = String(trip.TripNumber || '');
+    const schedFull = trip.ScheduledDepartureTime || '';
+    const compFull = trip.ComputedDepartureTime || schedFull;
+
+    // Extract HH:MM from full datetime string "2026-05-01 07:47:00"
+    const scheduled = schedFull.includes(' ') ? schedFull.split(' ')[1].slice(0, 5) : schedFull.slice(0, 5);
+    const estimated = compFull.includes(' ') ? compFull.split(' ')[1].slice(0, 5) : compFull.slice(0, 5);
+
+    // Calculate delay in minutes from the two timestamps
+    const schedDate = new Date(schedFull.replace(' ', 'T'));
+    const compDate = new Date(compFull.replace(' ', 'T'));
+    const delayMins = isNaN(schedDate) || isNaN(compDate)
+      ? 0
+      : Math.max(0, Math.round((compDate - schedDate) / 60000));
+
+    const cancelled = cancelledTrips.has(tripNum) || trip.Status === 'C';
+
     return {
       scheduled,
       estimated: cancelled ? scheduled : estimated,
       tripId: tripNum,
+      tripNumber: tripNum,
+      platform: trip.ScheduledPlatform || '—',
       status: cancelled ? 'Cancelled' : delayMins >= CONFIG.DELAY_THRESHOLD_MINS ? 'Delayed' : 'On Time',
       delayMins,
       cancelled,
-      destination: trip.Destination || trip.LastStopName || 'Union Station',
+      destination: (trip.DirectionName || '').replace(/^LW\s*-?\s*/i, '') || 'Union Station',
     };
   });
 
