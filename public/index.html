@@ -1,463 +1,1200 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GO Train Notifier — Bronte → Union</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,500;0,700;1,300&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --go-green: #00853F;
-    --go-green-bright: #00b356;
-    --go-yellow: #F5A800;
-    --go-red: #D62B2B;
-    --bg: #0D0F0E;
-    --surface: #141714;
-    --surface2: #1C201B;
-    --border: #2A2F29;
-    --text: #E8EDE8;
-    --muted: #6B7568;
-    --mono: 'Space Mono', monospace;
-    --sans: 'DM Sans', sans-serif;
-  }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GO Train Notifier — Bronte → Union</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,500;0,700;1,300&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --go-green: #00853F;
+      --go-green-bright: #00b356;
+      --go-yellow: #F5A800;
+      --go-red: #D62B2B;
+      --bg: #0D0F0E;
+      --surface: #141714;
+      --surface2: #1C201B;
+      --border: #2A2F29;
+      --text: #E8EDE8;
+      --muted: #6B7568;
+      --mono: 'Space Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
+    }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
 
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(90deg, transparent, transparent 119px, rgba(0,133,63,0.04) 119px, rgba(0,133,63,0.04) 120px);
-    pointer-events: none;
-    z-index: 0;
-  }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(90deg, transparent, transparent 119px, rgba(0, 133, 63, 0.04) 119px, rgba(0, 133, 63, 0.04) 120px);
+      pointer-events: none;
+      z-index: 0;
+    }
 
-  .container { position: relative; z-index: 1; max-width: 980px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
 
-  /* ── Header ── */
-  header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 1rem; }
-  .logo-area { display: flex; align-items: center; gap: 1rem; }
-  .go-badge { background: var(--go-green); color: #fff; font-family: var(--mono); font-weight: 700; font-size: 1.4rem; width: 52px; height: 52px; border-radius: 8px; display: flex; align-items: center; justify-content: center; letter-spacing: -1px; box-shadow: 0 0 24px rgba(0,133,63,0.4); flex-shrink: 0; }
-  .header-title h1 { font-family: var(--mono); font-size: 1.1rem; font-weight: 700; letter-spacing: 0.02em; color: var(--text); line-height: 1.2; }
-  .header-title .route { font-family: var(--sans); font-weight: 300; font-size: 0.82rem; color: var(--muted); margin-top: 2px; letter-spacing: 0.05em; text-transform: uppercase; }
-  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem; }
-  .live-indicator { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 0.7rem; color: var(--go-green-bright); letter-spacing: 0.1em; text-transform: uppercase; }
-  .live-dot { width: 7px; height: 7px; background: var(--go-green-bright); border-radius: 50%; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 0 0 rgba(0,179,86,0.4)} 50%{opacity:0.7;transform:scale(1.1);box-shadow:0 0 0 5px rgba(0,179,86,0)} }
-  .clock { font-family: var(--mono); font-size: 1.4rem; font-weight: 700; color: var(--text); letter-spacing: 0.05em; }
-  .timezone { font-size: 0.7rem; color: var(--muted); font-family: var(--mono); text-align: right; }
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
 
-  /* ── Status Banner ── */
-  .status-banner { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.75rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; transition: border-color 0.4s; position: relative; overflow: hidden; }
-  .status-banner::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 12px 0 0 12px; background: var(--status-color, var(--go-green)); transition: background 0.4s; }
-  .status-banner.delayed { --status-color: var(--go-red); border-color: rgba(214,43,43,0.3); }
-  .status-banner.alert   { --status-color: var(--go-yellow); border-color: rgba(245,168,0,0.3); }
-  .status-banner.ontime  { --status-color: var(--go-green); border-color: rgba(0,133,63,0.3); }
-  .status-left { display: flex; align-items: center; gap: 1rem; }
-  .status-icon { font-size: 2rem; line-height: 1; }
-  .status-text h2 { font-family: var(--mono); font-size: 1rem; font-weight: 700; color: var(--status-color, var(--go-green)); text-transform: uppercase; letter-spacing: 0.05em; }
-  .status-text p { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
-  .last-check { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); text-align: right; }
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
 
-  /* ── Stats Grid ── */
-  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.85rem; margin-bottom: 1.5rem; }
-  @media(max-width:700px){ .stats-grid { grid-template-columns: 1fr 1fr; } }
-  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; }
-  .stat-label { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.5rem; }
-  .stat-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 700; color: var(--text); line-height: 1; }
-  .stat-value.green { color: var(--go-green-bright); }
-  .stat-value.red   { color: var(--go-red); }
-  .stat-value.yellow{ color: var(--go-yellow); }
-  .stat-sub { font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+    .go-badge {
+      background: var(--go-green);
+      color: #fff;
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 1.4rem;
+      width: 52px;
+      height: 52px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: -1px;
+      box-shadow: 0 0 24px rgba(0, 133, 63, 0.4);
+      flex-shrink: 0;
+    }
 
-  /* ── Buttons ── */
-  .btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-  .btn { font-family: var(--mono); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.6rem 1.1rem; border-radius: 8px; border: none; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
-  .btn:active { transform: scale(0.97); }
-  .btn-primary { background: var(--go-green); color: #fff; }
-  .btn-primary:hover { background: var(--go-green-bright); }
-  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-  .btn-secondary:hover { border-color: var(--go-green); color: var(--go-green-bright); }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .header-title h1 {
+      font-family: var(--mono);
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--text);
+      line-height: 1.2;
+    }
 
-  /* ── Departure Board Section ── */
-  .departure-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.4rem; margin-bottom: 1.5rem; }
-  .dep-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem; }
-  .dep-title { font-family: var(--mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
-  .refresh-info { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+    .header-title .route {
+      font-family: var(--sans);
+      font-weight: 300;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 2px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
 
-  /* View Toggle */
-  .view-toggle { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-  .view-btn { font-family: var(--mono); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 5px 14px; border: none; background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s; }
-  .view-btn.active { background: var(--surface2); color: var(--go-green-bright); }
+    .header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.4rem;
+    }
 
-  /* ── Board View ── */
-  .board-table { width: 100%; border-collapse: collapse; }
-  .board-table thead tr { border-bottom: 1px solid var(--border); }
-  .board-table th { font-family: var(--mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); padding: 0 0.75rem 0.65rem; text-align: left; }
-  .board-table th:last-child { text-align: right; }
-  .board-table td { padding: 1rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
-  .board-table tr:last-child td { border-bottom: none; }
-  .board-table tr:hover td { background: var(--surface2); }
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--go-green-bright);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
 
-  .sched-time { font-family: var(--mono); font-size: 1.5rem; font-weight: 700; color: var(--text); }
-  .est-time { font-family: var(--mono); font-size: 0.95rem; font-weight: 700; }
-  .est-ontime    { color: var(--go-green-bright); }
-  .est-delayed   { color: var(--go-red); }
-  .est-cancelled { color: var(--muted); text-decoration: line-through; }
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--go-green-bright);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
 
-  .delay-badge { display: inline-block; font-family: var(--mono); font-size: 0.6rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; }
-  .badge-ontime    { background: rgba(0,133,63,0.15);   color: var(--go-green-bright); }
-  .badge-delayed   { background: rgba(214,43,43,0.15);  color: #ff6b6b; }
-  .badge-soon      { background: rgba(245,168,0,0.15);  color: var(--go-yellow); }
-  .badge-cancelled { background: rgba(107,117,104,0.2); color: var(--muted); }
-  .badge-departed  { background: rgba(107,117,104,0.12);color: var(--muted); }
+    @keyframes pulse {
 
-  .countdown-cell { text-align: right; }
-  .countdown-num { font-family: var(--mono); font-size: 0.9rem; font-weight: 700; }
-  .cd-ontime   { color: var(--text); }
-  .cd-soon     { color: var(--go-yellow); }
-  .cd-urgent   { color: var(--go-red); }
-  .cd-gone     { color: var(--muted); font-style: italic; font-weight: 400; font-size: 0.8rem; }
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(0, 179, 86, 0.4)
+      }
 
-  .progress-bar { height: 3px; border-radius: 2px; background: var(--border); margin-top: 5px; overflow: hidden; width: 80px; margin-left: auto; }
-  .progress-fill { height: 100%; border-radius: 2px; transition: width 1s linear; }
-  .pf-ontime  { background: var(--go-green); }
-  .pf-soon    { background: var(--go-yellow); }
-  .pf-urgent  { background: var(--go-red); }
-  .pf-done    { background: var(--muted); }
+      50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+        box-shadow: 0 0 0 5px rgba(0, 179, 86, 0)
+      }
+    }
 
-  /* ── Cards View ── */
-  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
-  .train-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; position: relative; overflow: hidden; transition: border-color 0.3s; }
-  .train-card:hover { border-color: rgba(0,133,63,0.4); }
-  .card-top-bar { position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0; }
-  .bar-ontime    { background: var(--go-green); }
-  .bar-delayed   { background: var(--go-red); }
-  .bar-soon      { background: var(--go-yellow); }
-  .bar-cancelled { background: var(--muted); }
-  .bar-departed  { background: var(--border); }
+    .clock {
+      font-family: var(--mono);
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.05em;
+    }
 
-  .card-scheduled { font-family: var(--mono); font-size: 2rem; font-weight: 700; color: var(--text); margin-top: 0.5rem; line-height: 1; }
-  .card-dest-label { font-size: 0.78rem; color: var(--muted); margin-top: 4px; margin-bottom: 1rem; }
+    .timezone {
+      font-size: 0.7rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      text-align: right;
+    }
 
-  .card-detail-row { display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
-  .card-detail-row:last-of-type { border-bottom: none; }
-  .cd-key { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-  .cd-val { font-family: var(--mono); font-size: 0.82rem; font-weight: 700; color: var(--text); }
-  .cd-val.delayed { color: var(--go-red); }
-  .cd-val.ontime  { color: var(--go-green-bright); }
-  .cd-val.muted   { color: var(--muted); }
+    /* ── Status Banner ── */
+    .status-banner {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.75rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      transition: border-color 0.4s;
+      position: relative;
+      overflow: hidden;
+    }
 
-  .card-countdown-box { margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid var(--border); text-align: center; }
-  .card-countdown-num { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; line-height: 1; }
-  .card-countdown-label { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
-  .card-progress { height: 3px; border-radius: 2px; background: var(--border); margin-top: 0.75rem; overflow: hidden; }
-  .card-progress-fill { height: 100%; border-radius: 2px; transition: width 1s linear; }
+    .status-banner::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      border-radius: 12px 0 0 12px;
+      background: var(--status-color, var(--go-green));
+      transition: background 0.4s;
+    }
 
-  /* ── Config & History ── */
-  .config-section, .history-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.4rem; margin-bottom: 1.5rem; }
-  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; }
-  .section-title { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
-  .config-row { display: flex; justify-content: space-between; align-items: center; padding: 0.55rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); gap: 1rem; flex-wrap: wrap; }
-  .config-row:last-child { border-bottom: none; }
-  .config-key { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; flex-shrink: 0; }
-  .config-val { font-family: var(--mono); font-size: 0.78rem; color: var(--text); text-align: right; }
-  .configured     { color: var(--go-green-bright); }
-  .not-configured { color: var(--go-red); }
-  .history-item { display: flex; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); align-items: flex-start; }
-  .history-item:last-child { border-bottom: none; }
-  .history-time { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); flex-shrink: 0; padding-top: 2px; min-width: 80px; }
-  .history-msg { font-size: 0.8rem; color: var(--text); line-height: 1.45; }
-  .empty-state { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.82rem; }
+    .status-banner.delayed {
+      --status-color: var(--go-red);
+      border-color: rgba(214, 43, 43, 0.3);
+    }
 
-  /* ── Setup Card ── */
-  .setup-card { background: linear-gradient(135deg, rgba(0,133,63,0.08), transparent); border: 1px solid rgba(0,133,63,0.25); border-radius: 12px; padding: 1.4rem; margin-bottom: 1.5rem; }
-  .setup-card h3 { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--go-green-bright); margin-bottom: 1rem; }
-  .step { display: flex; gap: 1rem; margin-bottom: 0.8rem; align-items: flex-start; }
-  .step-num { font-family: var(--mono); font-size: 0.65rem; font-weight: 700; background: var(--go-green); color: #fff; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
-  .step-text { font-size: 0.82rem; line-height: 1.5; color: var(--text); }
-  .step-text a { color: var(--go-green-bright); text-decoration: none; }
-  .step-text a:hover { text-decoration: underline; }
-  .code-inline { font-family: var(--mono); font-size: 0.72rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; color: var(--go-yellow); }
+    .status-banner.alert {
+      --status-color: var(--go-yellow);
+      border-color: rgba(245, 168, 0, 0.3);
+    }
 
-  /* ── Toast ── */
-  .toast { position: fixed; bottom: 2rem; right: 2rem; background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--go-green); border-radius: 8px; padding: 0.8rem 1.2rem; font-size: 0.8rem; font-family: var(--mono); color: var(--text); max-width: 320px; z-index: 999; transform: translateX(130%); transition: transform 0.3s ease; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-  .toast.show { transform: translateX(0); }
-  .toast.error { border-left-color: var(--go-red); }
+    .status-banner.ontime {
+      --status-color: var(--go-green);
+      border-color: rgba(0, 133, 63, 0.3);
+    }
 
-  footer { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); text-align: center; font-size: 0.72rem; color: var(--muted); font-family: var(--mono); }
-  .hidden { display: none !important; }
-</style>
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .status-icon {
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .status-text h2 {
+      font-family: var(--mono);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--status-color, var(--go-green));
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-text p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .last-check {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    /* ── Stats Grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.85rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media(max-width:700px) {
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+    }
+
+    .stat-label {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .stat-value.green {
+      color: var(--go-green-bright);
+    }
+
+    .stat-value.red {
+      color: var(--go-red);
+    }
+
+    .stat-value.yellow {
+      color: var(--go-yellow);
+    }
+
+    .stat-sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .btn {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.6rem 1.1rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-primary {
+      background: var(--go-green);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--go-green-bright);
+    }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--go-green);
+      color: var(--go-green-bright);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ── Departure Board Section ── */
+    .departure-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.4rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .dep-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .dep-title {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .refresh-info {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+
+    /* View Toggle */
+    .view-toggle {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .view-btn {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 5px 14px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .view-btn.active {
+      background: var(--surface2);
+      color: var(--go-green-bright);
+    }
+
+    /* ── Board View ── */
+    .board-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .board-table thead tr {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .board-table th {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      padding: 0 0.75rem 0.65rem;
+      text-align: left;
+    }
+
+    .board-table th:last-child {
+      text-align: right;
+    }
+
+    .board-table td {
+      padding: 1rem 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      vertical-align: middle;
+    }
+
+    .board-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .board-table tr:hover td {
+      background: var(--surface2);
+    }
+
+    .sched-time {
+      font-family: var(--mono);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .est-time {
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .est-ontime {
+      color: var(--go-green-bright);
+    }
+
+    .est-delayed {
+      color: var(--go-red);
+    }
+
+    .est-cancelled {
+      color: var(--muted);
+      text-decoration: line-through;
+    }
+
+    .delay-badge {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-ontime {
+      background: rgba(0, 133, 63, 0.15);
+      color: var(--go-green-bright);
+    }
+
+    .badge-delayed {
+      background: rgba(214, 43, 43, 0.15);
+      color: #ff6b6b;
+    }
+
+    .badge-soon {
+      background: rgba(245, 168, 0, 0.15);
+      color: var(--go-yellow);
+    }
+
+    .badge-cancelled {
+      background: rgba(107, 117, 104, 0.2);
+      color: var(--muted);
+    }
+
+    .badge-departed {
+      background: rgba(107, 117, 104, 0.12);
+      color: var(--muted);
+    }
+
+    .countdown-cell {
+      text-align: right;
+    }
+
+    .countdown-num {
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .cd-ontime {
+      color: var(--text);
+    }
+
+    .cd-soon {
+      color: var(--go-yellow);
+    }
+
+    .cd-urgent {
+      color: var(--go-red);
+    }
+
+    .cd-gone {
+      color: var(--muted);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 0.8rem;
+    }
+
+    .progress-bar {
+      height: 3px;
+      border-radius: 2px;
+      background: var(--border);
+      margin-top: 5px;
+      overflow: hidden;
+      width: 80px;
+      margin-left: auto;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 1s linear;
+    }
+
+    .pf-ontime {
+      background: var(--go-green);
+    }
+
+    .pf-soon {
+      background: var(--go-yellow);
+    }
+
+    .pf-urgent {
+      background: var(--go-red);
+    }
+
+    .pf-done {
+      background: var(--muted);
+    }
+
+    /* ── Cards View ── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .train-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s;
+    }
+
+    .train-card:hover {
+      border-color: rgba(0, 133, 63, 0.4);
+    }
+
+    .card-top-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      border-radius: 12px 12px 0 0;
+    }
+
+    .bar-ontime {
+      background: var(--go-green);
+    }
+
+    .bar-delayed {
+      background: var(--go-red);
+    }
+
+    .bar-soon {
+      background: var(--go-yellow);
+    }
+
+    .bar-cancelled {
+      background: var(--muted);
+    }
+
+    .bar-departed {
+      background: var(--border);
+    }
+
+    .card-scheduled {
+      font-family: var(--mono);
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 0.5rem;
+      line-height: 1;
+    }
+
+    .card-dest-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 4px;
+      margin-bottom: 1rem;
+    }
+
+    .card-detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .card-detail-row:last-of-type {
+      border-bottom: none;
+    }
+
+    .cd-key {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .cd-val {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .cd-val.delayed {
+      color: var(--go-red);
+    }
+
+    .cd-val.ontime {
+      color: var(--go-green-bright);
+    }
+
+    .cd-val.muted {
+      color: var(--muted);
+    }
+
+    .card-countdown-box {
+      margin-top: 1rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .card-countdown-num {
+      font-family: var(--mono);
+      font-size: 1.6rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .card-countdown-label {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 4px;
+    }
+
+    .card-progress {
+      height: 3px;
+      border-radius: 2px;
+      background: var(--border);
+      margin-top: 0.75rem;
+      overflow: hidden;
+    }
+
+    .card-progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 1s linear;
+    }
+
+    /* ── Config & History ── */
+    .config-section,
+    .history-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.4rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .section-title {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .config-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .config-row:last-child {
+      border-bottom: none;
+    }
+
+    .config-key {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      flex-shrink: 0;
+    }
+
+    .config-val {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--text);
+      text-align: right;
+    }
+
+    .configured {
+      color: var(--go-green-bright);
+    }
+
+    .not-configured {
+      color: var(--go-red);
+    }
+
+    .history-item {
+      display: flex;
+      gap: 1rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      align-items: flex-start;
+    }
+
+    .history-item:last-child {
+      border-bottom: none;
+    }
+
+    .history-time {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: var(--muted);
+      flex-shrink: 0;
+      padding-top: 2px;
+      min-width: 80px;
+    }
+
+    .history-msg {
+      font-size: 0.8rem;
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    /* ── Setup Card ── */
+    .setup-card {
+      background: linear-gradient(135deg, rgba(0, 133, 63, 0.08), transparent);
+      border: 1px solid rgba(0, 133, 63, 0.25);
+      border-radius: 12px;
+      padding: 1.4rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .setup-card h3 {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--go-green-bright);
+      margin-bottom: 1rem;
+    }
+
+    .step {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 0.8rem;
+      align-items: flex-start;
+    }
+
+    .step-num {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 700;
+      background: var(--go-green);
+      color: #fff;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .step-text {
+      font-size: 0.82rem;
+      line-height: 1.5;
+      color: var(--text);
+    }
+
+    .step-text a {
+      color: var(--go-green-bright);
+      text-decoration: none;
+    }
+
+    .step-text a:hover {
+      text-decoration: underline;
+    }
+
+    .code-inline {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: var(--go-yellow);
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--go-green);
+      border-radius: 8px;
+      padding: 0.8rem 1.2rem;
+      font-size: 0.8rem;
+      font-family: var(--mono);
+      color: var(--text);
+      max-width: 320px;
+      z-index: 999;
+      transform: translateX(130%);
+      transition: transform 0.3s ease;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    .toast.error {
+      border-left-color: var(--go-red);
+    }
+
+    footer {
+      margin-top: 2.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
 </head>
+
 <body>
-<div class="container">
+  <div class="container">
 
-  <!-- Header -->
-  <header>
-    <div class="logo-area">
-      <div class="go-badge">GO</div>
-      <div class="header-title">
-        <h1>Train Delay Notifier</h1>
-        <div class="route">Bronte GO → Union Station · Lakeshore West</div>
+    <!-- Header -->
+    <header>
+      <div class="logo-area">
+        <div class="go-badge">GO</div>
+        <div class="header-title">
+          <h1>Train Delay Notifier</h1>
+          <div class="route">Bronte GO → Union Station · Lakeshore West</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="live-indicator">
+          <div class="live-dot"></div>Live Monitor
+        </div>
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="timezone">Eastern Time · Toronto</div>
+      </div>
+    </header>
+
+    <!-- Status Banner -->
+    <div class="status-banner ontime" id="statusBanner">
+      <div class="status-left">
+        <div class="status-icon" id="statusIcon">🟢</div>
+        <div class="status-text">
+          <h2 id="statusText">On Time</h2>
+          <p id="statusSub">Monitoring 7:45–8:30 AM morning trains</p>
+        </div>
+      </div>
+      <div class="last-check">
+        Last checked<br><span id="lastCheck">—</span><br>
+        Last trigger<br><span id="lastTrigger">—</span>
       </div>
     </div>
-    <div class="header-right">
-      <div class="live-indicator"><div class="live-dot"></div>Live Monitor</div>
-      <div class="clock" id="clock">--:--:--</div>
-      <div class="timezone">Eastern Time · Toronto</div>
-    </div>
-  </header>
 
-  <!-- Status Banner -->
-  <div class="status-banner ontime" id="statusBanner">
-    <div class="status-left">
-      <div class="status-icon" id="statusIcon">🟢</div>
-      <div class="status-text">
-        <h2 id="statusText">On Time</h2>
-        <p id="statusSub">Monitoring 7:45–8:30 AM morning trains</p>
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Monitor</div>
+        <div class="stat-value green" id="monStatus">Active</div>
+        <div class="stat-sub">Weekday mornings</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Alerts Today</div>
+        <div class="stat-value" id="alertCount">0</div>
+        <div class="stat-sub">SMS sent</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Threshold</div>
+        <div class="stat-value">3</div>
+        <div class="stat-sub">Min delay → SMS</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Notify</div>
+        <div class="stat-value" id="notifyPhone" style="font-size:0.9rem;padding-top:4px">—</div>
+        <div class="stat-sub">Wife's mobile</div>
       </div>
     </div>
-    <div class="last-check">
-      Last checked<br><span id="lastCheck">—</span><br>
-      Last trigger<br><span id="lastTrigger">—</span>
-    </div>
-  </div>
 
-  <!-- Stats -->
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-label">Monitor</div>
-      <div class="stat-value green" id="monStatus">Active</div>
-      <div class="stat-sub">Weekday mornings</div>
+    <!-- Action Buttons -->
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="checkNow()" id="btnCheck">🔍 Check Now</button>
+      <button class="btn btn-secondary" onclick="testSMS()" id="btnTest">📱 Test SMS</button>
     </div>
-    <div class="stat-card">
-      <div class="stat-label">Alerts Today</div>
-      <div class="stat-value" id="alertCount">0</div>
-      <div class="stat-sub">SMS sent</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Threshold</div>
-      <div class="stat-value">3</div>
-      <div class="stat-sub">Min delay → SMS</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Notify</div>
-      <div class="stat-value" id="notifyPhone" style="font-size:0.9rem;padding-top:4px">—</div>
-      <div class="stat-sub">Wife's mobile</div>
-    </div>
-  </div>
 
-  <!-- Action Buttons -->
-  <div class="btn-row">
-    <button class="btn btn-primary" onclick="checkNow()" id="btnCheck">🔍 Check Now</button>
-    <button class="btn btn-secondary" onclick="testSMS()" id="btnTest">📱 Test SMS</button>
-  </div>
-
-  <!-- Departure Board -->
-  <div class="departure-section">
-    <div class="dep-header">
-      <div>
-        <div class="dep-title">🚆 Morning Departures · Bronte GO → Union Station</div>
-        <div class="refresh-info" id="refreshInfo">Auto-refreshes every 30s · Next in <span id="refreshCountdown">30</span>s</div>
+    <!-- Departure Board -->
+    <div class="departure-section">
+      <div class="dep-header">
+        <div>
+          <div class="dep-title">🚆 Morning Departures · Bronte GO → Union Station</div>
+          <div class="refresh-info" id="refreshInfo">Auto-refreshes every 30s · Next in <span
+              id="refreshCountdown">30</span>s</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+          <div class="view-toggle">
+            <button class="view-btn active" id="btnBoard" onclick="setView('board')">Board</button>
+            <button class="view-btn" id="btnCards" onclick="setView('cards')">Cards</button>
+          </div>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
-        <div class="view-toggle">
-          <button class="view-btn active" id="btnBoard" onclick="setView('board')">Board</button>
-          <button class="view-btn" id="btnCards" onclick="setView('cards')">Cards</button>
+
+      <!-- Board View -->
+      <div id="boardView">
+        <table class="board-table">
+          <thead>
+            <tr>
+              <th>Scheduled</th>
+              <th>Destination</th>
+              <th>Estimated</th>
+              <th>Status</th>
+              <th style="text-align:right">Departs in</th>
+            </tr>
+          </thead>
+          <tbody id="boardBody">
+            <tr>
+              <td colspan="5">
+                <div class="empty-state">Monitoring starts at 7:30 AM on weekdays</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Cards View -->
+      <div id="cardsView" class="hidden">
+        <div class="cards-grid" id="cardsGrid">
+          <div class="empty-state" style="grid-column:1/-1">Monitoring starts at 7:30 AM on weekdays</div>
         </div>
       </div>
     </div>
 
-    <!-- Board View -->
-    <div id="boardView">
-      <table class="board-table">
-        <thead>
-          <tr>
-            <th>Scheduled</th>
-            <th>Destination</th>
-            <th>Estimated</th>
-            <th>Status</th>
-            <th style="text-align:right">Departs in</th>
-          </tr>
-        </thead>
-        <tbody id="boardBody">
-          <tr><td colspan="5"><div class="empty-state">Click "Check Now" to load live train data</div></td></tr>
-        </tbody>
-      </table>
+    <!-- Config Panel -->
+    <div class="config-section">
+      <div class="section-header">
+        <div class="section-title">⚙️ Configuration</div>
+      </div>
+      <div id="configRows"></div>
     </div>
 
-    <!-- Cards View -->
-    <div id="cardsView" class="hidden">
-      <div class="cards-grid" id="cardsGrid">
-        <div class="empty-state" style="grid-column:1/-1">Click "Check Now" to load live train data</div>
+    <!-- Setup Guide -->
+    <div class="setup-card">
+      <h3>🛠 Setup — Railway + cron-job.org (Free)</h3>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text"><b>Fill in <span class="code-inline">.env</span></b> — GO API key (from Metrolinx),
+          Twilio credentials, wife's number, and a <span class="code-inline">CRON_SECRET</span>.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text"><b>Deploy to <a href="https://railway.app" target="_blank">Railway</a></b> — push to
+          GitHub, connect repo, paste all <span class="code-inline">.env</span> values into Railway Variables tab.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text"><b>Set up <a href="https://cron-job.org" target="_blank">cron-job.org</a></b> — POST to
+          <span class="code-inline">/api/trigger?key=YOUR_SECRET</span> every 2 min, Hours 7–8, Mon–Fri.
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text"><b>Test</b> — click <em>Test SMS</em> to confirm your wife gets the message.</div>
       </div>
     </div>
+
+    <!-- Alert History -->
+    <div class="history-section">
+      <div class="section-header">
+        <div class="section-title">📋 Alert History</div>
+        <div style="font-size:0.68rem;color:var(--muted);font-family:var(--mono)" id="historyCount">0 alerts</div>
+      </div>
+      <div id="historyList">
+        <div class="empty-state">No alerts sent yet</div>
+      </div>
+    </div>
+
+    <footer>
+      GO Train Notifier · Lakeshore West · Bronte → Union · Triggered every 2 min on weekday mornings via
+      cron-job.org<br>
+      Data provided by Metrolinx / GO Transit Open Data API
+    </footer>
   </div>
 
-  <!-- Config Panel -->
-  <div class="config-section">
-    <div class="section-header">
-      <div class="section-title">⚙️ Configuration</div>
-    </div>
-    <div id="configRows"></div>
-  </div>
+  <div class="toast" id="toast"></div>
 
-  <!-- Setup Guide -->
-  <div class="setup-card">
-    <h3>🛠 Setup — Railway + cron-job.org (Free)</h3>
-    <div class="step">
-      <div class="step-num">1</div>
-      <div class="step-text"><b>Fill in <span class="code-inline">.env</span></b> — GO API key (from Metrolinx), Twilio credentials, wife's number, and a <span class="code-inline">CRON_SECRET</span>.</div>
-    </div>
-    <div class="step">
-      <div class="step-num">2</div>
-      <div class="step-text"><b>Deploy to <a href="https://railway.app" target="_blank">Railway</a></b> — push to GitHub, connect repo, paste all <span class="code-inline">.env</span> values into Railway Variables tab.</div>
-    </div>
-    <div class="step">
-      <div class="step-num">3</div>
-      <div class="step-text"><b>Set up <a href="https://cron-job.org" target="_blank">cron-job.org</a></b> — POST to <span class="code-inline">/api/trigger?key=YOUR_SECRET</span> every 2 min, Hours 7–8, Mon–Fri.</div>
-    </div>
-    <div class="step">
-      <div class="step-num">4</div>
-      <div class="step-text"><b>Test</b> — click <em>Test SMS</em> to confirm your wife gets the message.</div>
-    </div>
-  </div>
+  <script>
+    // ── Clock ──────────────────────────────────────────────────────────────────
+    function updateClock() {
+      document.getElementById('clock').textContent =
+        new Date().toLocaleTimeString('en-CA', { hour12: false, timeZone: 'America/Toronto' });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
 
-  <!-- Alert History -->
-  <div class="history-section">
-    <div class="section-header">
-      <div class="section-title">📋 Alert History</div>
-      <div style="font-size:0.68rem;color:var(--muted);font-family:var(--mono)" id="historyCount">0 alerts</div>
-    </div>
-    <div id="historyList">
-      <div class="empty-state">No alerts sent yet</div>
-    </div>
-  </div>
+    // ── Toast ──────────────────────────────────────────────────────────────────
+    function showToast(msg, isError = false) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'toast show' + (isError ? ' error' : '');
+      setTimeout(() => el.className = 'toast', 3500);
+    }
 
-  <footer>
-    GO Train Notifier · Lakeshore West · Bronte → Union · Triggered every 2 min on weekday mornings via cron-job.org<br>
-    Data provided by Metrolinx / GO Transit Open Data API
-  </footer>
-</div>
+    // ── View Toggle ────────────────────────────────────────────────────────────
+    let currentView = 'board';
+    function setView(v) {
+      currentView = v;
+      document.getElementById('boardView').classList.toggle('hidden', v !== 'board');
+      document.getElementById('cardsView').classList.toggle('hidden', v !== 'cards');
+      document.getElementById('btnBoard').classList.toggle('active', v === 'board');
+      document.getElementById('btnCards').classList.toggle('active', v === 'cards');
+    }
 
-<div class="toast" id="toast"></div>
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    function parseScheduled(timeStr) {
+      if (!timeStr) return null;
+      const [h, m] = timeStr.split(':').map(Number);
+      const d = new Date();
+      d.setHours(h, m, 0, 0);
+      return d;
+    }
 
-<script>
-// ── Clock ──────────────────────────────────────────────────────────────────
-function updateClock() {
-  document.getElementById('clock').textContent =
-    new Date().toLocaleTimeString('en-CA', { hour12: false, timeZone: 'America/Toronto' });
-}
-setInterval(updateClock, 1000);
-updateClock();
+    function getEstimated(train) {
+      const base = parseScheduled(train.scheduled);
+      if (!base) return null;
+      base.setMinutes(base.getMinutes() + (train.delayMins || 0));
+      return base;
+    }
 
-// ── Toast ──────────────────────────────────────────────────────────────────
-function showToast(msg, isError = false) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'toast show' + (isError ? ' error' : '');
-  setTimeout(() => el.className = 'toast', 3500);
-}
+    function fmtTime(d) {
+      if (!d) return '—';
+      return d.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
 
-// ── View Toggle ────────────────────────────────────────────────────────────
-let currentView = 'board';
-function setView(v) {
-  currentView = v;
-  document.getElementById('boardView').classList.toggle('hidden', v !== 'board');
-  document.getElementById('cardsView').classList.toggle('hidden', v !== 'cards');
-  document.getElementById('btnBoard').classList.toggle('active', v === 'board');
-  document.getElementById('btnCards').classList.toggle('active', v === 'cards');
-}
+    function minsUntil(d) {
+      if (!d) return null;
+      return Math.round((d - Date.now()) / 60000);
+    }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-function parseScheduled(timeStr) {
-  if (!timeStr) return null;
-  const [h, m] = timeStr.split(':').map(Number);
-  const d = new Date();
-  d.setHours(h, m, 0, 0);
-  return d;
-}
+    function getTrainState(train) {
+      if (train.status === 'Cancelled' || train.cancelled) return 'cancelled';
+      const est = getEstimated(train);
+      const mins = minsUntil(est);
+      if (mins !== null && mins < 0) return 'departed';
+      if (train.delayMins >= 5) return 'delayed';
+      if (mins !== null && mins <= 8) return 'soon';
+      return 'ontime';
+    }
 
-function getEstimated(train) {
-  const base = parseScheduled(train.scheduled);
-  if (!base) return null;
-  base.setMinutes(base.getMinutes() + (train.delayMins || 0));
-  return base;
-}
+    function getProgress(train) {
+      const est = getEstimated(train);
+      const mins = minsUntil(est);
+      if (mins === null) return 0;
+      if (mins <= 0) return 100;
+      if (mins > 45) return 0;
+      return Math.round(((45 - mins) / 45) * 100);
+    }
 
-function fmtTime(d) {
-  if (!d) return '—';
-  return d.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false });
-}
+    function badgeHtml(state, delayMins) {
+      if (state === 'cancelled') return '<span class="delay-badge badge-cancelled">Cancelled</span>';
+      if (state === 'departed') return '<span class="delay-badge badge-departed">Departed</span>';
+      if (state === 'delayed') return `<span class="delay-badge badge-delayed">+${delayMins} min</span>`;
+      if (state === 'soon') return '<span class="delay-badge badge-soon">Boarding soon</span>';
+      return '<span class="delay-badge badge-ontime">On time</span>';
+    }
 
-function minsUntil(d) {
-  if (!d) return null;
-  return Math.round((d - Date.now()) / 60000);
-}
+    function countdownHtml(train, state) {
+      if (state === 'cancelled') return { html: '<span class="countdown-num cd-gone">Cancelled</span>', cls: 'pf-done' };
+      if (state === 'departed') return { html: '<span class="countdown-num cd-gone">Departed</span>', cls: 'pf-done' };
+      const est = getEstimated(train);
+      const mins = minsUntil(est);
+      if (mins === null) return { html: '—', cls: 'pf-done' };
+      if (mins <= 0) return { html: '<span class="countdown-num cd-gone">Now</span>', cls: 'pf-urgent' };
+      if (mins <= 3) return { html: `<span class="countdown-num cd-urgent">${mins} min</span>`, cls: 'pf-urgent' };
+      if (mins <= 8) return { html: `<span class="countdown-num cd-soon">${mins} min</span>`, cls: 'pf-soon' };
+      return { html: `<span class="countdown-num cd-ontime">${mins} min</span>`, cls: 'pf-ontime' };
+    }
 
-function getTrainState(train) {
-  if (train.status === 'Cancelled' || train.cancelled) return 'cancelled';
-  const est = getEstimated(train);
-  const mins = minsUntil(est);
-  if (mins !== null && mins < 0) return 'departed';
-  if (train.delayMins >= 5) return 'delayed';
-  if (mins !== null && mins <= 8) return 'soon';
-  return 'ontime';
-}
-
-function getProgress(train) {
-  const est = getEstimated(train);
-  const mins = minsUntil(est);
-  if (mins === null) return 0;
-  if (mins <= 0) return 100;
-  if (mins > 45) return 0;
-  return Math.round(((45 - mins) / 45) * 100);
-}
-
-function badgeHtml(state, delayMins) {
-  if (state === 'cancelled') return '<span class="delay-badge badge-cancelled">Cancelled</span>';
-  if (state === 'departed')  return '<span class="delay-badge badge-departed">Departed</span>';
-  if (state === 'delayed')   return `<span class="delay-badge badge-delayed">+${delayMins} min</span>`;
-  if (state === 'soon')      return '<span class="delay-badge badge-soon">Boarding soon</span>';
-  return '<span class="delay-badge badge-ontime">On time</span>';
-}
-
-function countdownHtml(train, state) {
-  if (state === 'cancelled') return { html: '<span class="countdown-num cd-gone">Cancelled</span>', cls: 'pf-done' };
-  if (state === 'departed')  return { html: '<span class="countdown-num cd-gone">Departed</span>', cls: 'pf-done' };
-  const est = getEstimated(train);
-  const mins = minsUntil(est);
-  if (mins === null) return { html: '—', cls: 'pf-done' };
-  if (mins <= 0) return { html: '<span class="countdown-num cd-gone">Now</span>', cls: 'pf-urgent' };
-  if (mins <= 3) return { html: `<span class="countdown-num cd-urgent">${mins} min</span>`, cls: 'pf-urgent' };
-  if (mins <= 8) return { html: `<span class="countdown-num cd-soon">${mins} min</span>`, cls: 'pf-soon' };
-  return { html: `<span class="countdown-num cd-ontime">${mins} min</span>`, cls: 'pf-ontime' };
-}
-
-// ── Render Board View ──────────────────────────────────────────────────────
-function renderBoard(trains) {
-  const tbody = document.getElementById('boardBody');
-  if (!trains.length) {
-    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">No morning trains found — check back after GO API key is added</div></td></tr>';
-    return;
-  }
-  tbody.innerHTML = trains.map(train => {
-    const state = getTrainState(train);
-    const est   = getEstimated(train);
-    const cd    = countdownHtml(train, state);
-    const prog  = getProgress(train);
-    const estClass = state === 'cancelled' ? 'est-cancelled' : state === 'departed' ? 'est-cancelled' : train.delayMins > 0 ? 'est-delayed' : 'est-ontime';
-    return `<tr>
+    // ── Render Board View ──────────────────────────────────────────────────────
+    function renderBoard(trains) {
+      const tbody = document.getElementById('boardBody');
+      if (!trains.length) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">No morning trains found — check back after GO API key is added</div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = trains.map(train => {
+        const state = getTrainState(train);
+        const est = getEstimated(train);
+        const cd = countdownHtml(train, state);
+        const prog = getProgress(train);
+        const estClass = state === 'cancelled' ? 'est-cancelled' : state === 'departed' ? 'est-cancelled' : train.delayMins > 0 ? 'est-delayed' : 'est-ontime';
+        return `<tr>
       <td><div class="sched-time">${train.scheduled || '—'}</div></td>
       <td>
         <div style="font-size:0.9rem;font-weight:500">${train.destination || 'Union Station'}</div>
@@ -466,8 +1203,8 @@ function renderBoard(trains) {
       <td>
         <div class="est-time ${estClass}">${fmtTime(est)}</div>
         ${train.delayMins > 0 && state !== 'cancelled' && state !== 'departed'
-          ? `<div style="font-size:0.7rem;color:var(--go-red);margin-top:2px">+${train.delayMins} min delay</div>`
-          : ''}
+            ? `<div style="font-size:0.7rem;color:var(--go-red);margin-top:2px">+${train.delayMins} min delay</div>`
+            : ''}
       </td>
       <td>${badgeHtml(state, train.delayMins)}</td>
       <td class="countdown-cell">
@@ -477,24 +1214,24 @@ function renderBoard(trains) {
         </div>
       </td>
     </tr>`;
-  }).join('');
-}
+      }).join('');
+    }
 
-// ── Render Cards View ──────────────────────────────────────────────────────
-function renderCards(trains) {
-  const grid = document.getElementById('cardsGrid');
-  if (!trains.length) {
-    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">No morning trains found</div>';
-    return;
-  }
-  grid.innerHTML = trains.map(train => {
-    const state = getTrainState(train);
-    const est   = getEstimated(train);
-    const cd    = countdownHtml(train, state);
-    const prog  = getProgress(train);
-    const barCls = `bar-${state === 'soon' ? 'soon' : state}`;
-    const countdownColor = state === 'urgent' ? 'var(--go-red)' : state === 'soon' ? 'var(--go-yellow)' : state === 'departed' || state === 'cancelled' ? 'var(--muted)' : 'var(--text)';
-    return `<div class="train-card">
+    // ── Render Cards View ──────────────────────────────────────────────────────
+    function renderCards(trains) {
+      const grid = document.getElementById('cardsGrid');
+      if (!trains.length) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">No morning trains found</div>';
+        return;
+      }
+      grid.innerHTML = trains.map(train => {
+        const state = getTrainState(train);
+        const est = getEstimated(train);
+        const cd = countdownHtml(train, state);
+        const prog = getProgress(train);
+        const barCls = `bar-${state === 'soon' ? 'soon' : state}`;
+        const countdownColor = state === 'urgent' ? 'var(--go-red)' : state === 'soon' ? 'var(--go-yellow)' : state === 'departed' || state === 'cancelled' ? 'var(--muted)' : 'var(--text)';
+        return `<div class="train-card">
       <div class="card-top-bar ${barCls}"></div>
       <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.5rem">Scheduled</div>
       <div class="card-scheduled">${train.scheduled || '—'}</div>
@@ -517,126 +1254,208 @@ function renderCards(trains) {
         <div class="card-progress"><div class="card-progress-fill ${cd.cls}" style="width:${prog}%"></div></div>
       </div>
     </div>`;
-  }).join('');
-}
+      }).join('');
+    }
 
-// ── Render Everything ──────────────────────────────────────────────────────
-function renderAll(data) {
-  // Banner
-  const status = data.lastStatus || 'Unknown';
-  const banner = document.getElementById('statusBanner');
-  banner.className = 'status-banner ' + (status === 'Delayed' ? 'delayed' : status === 'Alert' ? 'alert' : 'ontime');
-  document.getElementById('statusIcon').textContent = status === 'Delayed' ? '🔴' : status === 'Alert' ? '🟡' : '🟢';
-  document.getElementById('statusText').textContent = status === 'Delayed' ? `Delayed ${data.lastDelay || '?'} min` : status === 'Alert' ? 'Service Alert' : 'On Time';
+    // ── Render Everything ──────────────────────────────────────────────────────
+    function renderAll(data) {
+      // Banner
+      const status = data.lastStatus || 'Unknown';
+      const banner = document.getElementById('statusBanner');
+      banner.className = 'status-banner ' + (status === 'Delayed' ? 'delayed' : status === 'Alert' ? 'alert' : 'ontime');
+      document.getElementById('statusIcon').textContent = status === 'Delayed' ? '🔴' : status === 'Alert' ? '🟡' : '🟢';
+      document.getElementById('statusText').textContent = status === 'Delayed' ? `Delayed ${data.lastDelay || '?'} min` : status === 'Alert' ? 'Service Alert' : 'On Time';
 
-  if (data.lastCheck) {
-    document.getElementById('lastCheck').textContent =
-      new Date(data.lastCheck).toLocaleTimeString('en-CA', { hour12: false, timeZone: 'America/Toronto' });
-  }
-  if (data.lastTrigger) {
-    document.getElementById('lastTrigger').textContent =
-      new Date(data.lastTrigger).toLocaleTimeString('en-CA', { hour12: false, timeZone: 'America/Toronto' });
-  }
+      if (data.lastCheck) {
+        document.getElementById('lastCheck').textContent =
+          new Date(data.lastCheck).toLocaleTimeString('en-CA', { hour12: false, timeZone: 'America/Toronto' });
+      }
+      if (data.lastTrigger) {
+        document.getElementById('lastTrigger').textContent =
+          new Date(data.lastTrigger).toLocaleTimeString('en-CA', { hour12: false, timeZone: 'America/Toronto' });
+      }
 
-  // Stats
-  document.getElementById('monStatus').textContent = data.monitoring ? 'Active' : 'Paused';
-  document.getElementById('monStatus').className = 'stat-value ' + (data.monitoring ? 'green' : 'red');
-  document.getElementById('alertCount').textContent = data.alertsSentToday || 0;
-  document.getElementById('notifyPhone').textContent = data.config?.notifyPhone || 'Not set';
+      // Stats
+      document.getElementById('monStatus').textContent = data.monitoring ? 'Active' : 'Paused';
+      document.getElementById('monStatus').className = 'stat-value ' + (data.monitoring ? 'green' : 'red');
+      document.getElementById('alertCount').textContent = data.alertsSentToday || 0;
+      document.getElementById('notifyPhone').textContent = data.config?.notifyPhone || 'Not set';
 
-  // Trains
-  const trains = data.trainStatuses || [];
-  renderBoard(trains);
-  renderCards(trains);
+      // Trains
+      const trains = data.trainStatuses || [];
+      renderBoard(trains);
+      renderCards(trains);
 
-  // Config
-  const cfg = data.config || {};
-  document.getElementById('configRows').innerHTML = [
-    ['Station',       'Bronte GO → Union Station'],
-    ['Line',          'Lakeshore West (LW)'],
-    ['Window',        cfg.monitorWindow || '7:30–8:45 AM'],
-    ['Threshold',     (cfg.delayThreshold || 3) + ' min delay'],
-    ['GO API',        cfg.goApiConfigured ? '✓ Configured' : '✗ Not set — waiting for Metrolinx', cfg.goApiConfigured],
-    ['Twilio SMS',    cfg.twilioConfigured ? '✓ Configured' : '✗ Not set', cfg.twilioConfigured],
-    ['Notify Phone',  cfg.notifyPhone || 'Not set'],
-    ['Cron Secret',   cfg.cronSecret || '—'],
-    ['Trigger Mode',  'cron-job.org → POST /api/trigger'],
-  ].map(([k, v, ok]) => `
+      // Config
+      const cfg = data.config || {};
+      document.getElementById('configRows').innerHTML = [
+        ['Station', 'Bronte GO → Union Station'],
+        ['Line', 'Lakeshore West (LW)'],
+        ['Window', cfg.monitorWindow || '7:30–8:45 AM'],
+        ['Threshold', (cfg.delayThreshold || 3) + ' min delay'],
+        ['GO API', cfg.goApiConfigured ? '✓ Configured' : '✗ Not set — waiting for Metrolinx', cfg.goApiConfigured],
+        ['Twilio SMS', cfg.twilioConfigured ? '✓ Configured' : '✗ Not set', cfg.twilioConfigured],
+        ['Notify Phone', cfg.notifyPhone || 'Not set'],
+        ['Cron Secret', cfg.cronSecret || '—'],
+        ['Trigger Mode', 'cron-job.org → POST /api/trigger'],
+      ].map(([k, v, ok]) => `
     <div class="config-row">
       <span class="config-key">${k}</span>
       <span class="config-val ${ok === true ? 'configured' : ok === false ? 'not-configured' : ''}">${v}</span>
     </div>`).join('');
 
-  // History
-  const hist = data.alertHistory || [];
-  document.getElementById('historyCount').textContent = hist.length + ' alert' + (hist.length !== 1 ? 's' : '');
-  document.getElementById('historyList').innerHTML = hist.length === 0
-    ? '<div class="empty-state">No alerts sent yet — will appear here when a delay is detected</div>'
-    : hist.slice(0, 30).map(h => `
+      // History
+      const hist = data.alertHistory || [];
+      document.getElementById('historyCount').textContent = hist.length + ' alert' + (hist.length !== 1 ? 's' : '');
+      document.getElementById('historyList').innerHTML = hist.length === 0
+        ? '<div class="empty-state">No alerts sent yet — will appear here when a delay is detected</div>'
+        : hist.slice(0, 30).map(h => `
         <div class="history-item">
           <div class="history-time">${new Date(h.time).toLocaleTimeString('en-CA', { hour12: false, timeZone: 'America/Toronto' })}</div>
           <div class="history-msg">${h.message}</div>
         </div>`).join('');
-}
+    }
 
-// ── API Calls ──────────────────────────────────────────────────────────────
-async function loadStatus() {
-  try {
-    const res = await fetch('/api/status');
-    const data = await res.json();
-    renderAll(data);
-  } catch(e) { console.error('Status fetch failed', e); }
-}
+    // ── API Calls ──────────────────────────────────────────────────────────────
+    async function loadStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        renderAll(data);
+      } catch (e) { console.error('Status fetch failed', e); }
+    }
 
-async function checkNow() {
-  const btn = document.getElementById('btnCheck');
-  btn.disabled = true; btn.textContent = '⏳ Checking...';
-  try {
-    const res = await fetch('/api/check-now', { method: 'POST' });
-    const data = await res.json();
-    showToast(data.success ? `✓ Status: ${data.status}` : '✗ Check failed');
-    await loadStatus();
-  } catch(e) { showToast('✗ Connection error', true); }
-  finally { btn.disabled = false; btn.textContent = '🔍 Check Now'; }
-}
+    async function checkNow() {
+      const btn = document.getElementById('btnCheck');
+      btn.disabled = true; btn.textContent = '⏳ Checking...';
+      try {
+        const res = await fetch('/api/check-now', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.success ? `✓ Status: ${data.status}` : '✗ Check failed');
+        await loadStatus();
+      } catch (e) { showToast('✗ Connection error', true); }
+      finally { btn.disabled = false; btn.textContent = '🔍 Check Now'; }
+    }
 
-async function testSMS() {
-  const btn = document.getElementById('btnTest');
-  btn.disabled = true; btn.textContent = '📤 Sending...';
-  try {
-    const res = await fetch('/api/test-sms', { method: 'POST' });
-    const data = await res.json();
-    showToast(data.success
-      ? (data.result?.simulated ? '⚠ Simulated (Twilio not set)' : '✓ Test SMS sent!')
-      : '✗ Failed: ' + data.error, !data.success);
-  } catch(e) { showToast('✗ Error: ' + e.message, true); }
-  finally { btn.disabled = false; btn.textContent = '📱 Test SMS'; }
-}
+    async function testSMS() {
+      const btn = document.getElementById('btnTest');
+      btn.disabled = true; btn.textContent = '📤 Sending...';
+      try {
+        const res = await fetch('/api/test-sms', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.success
+          ? (data.result?.simulated ? '⚠ Simulated (Twilio not set)' : '✓ Test SMS sent!')
+          : '✗ Failed: ' + data.error, !data.success);
+      } catch (e) { showToast('✗ Error: ' + e.message, true); }
+      finally { btn.disabled = false; btn.textContent = '📱 Test SMS'; }
+    }
 
-// ── Auto-refresh every 30s + countdown ────────────────────────────────────
-let refreshSecs = 30;
-setInterval(() => {
-  refreshSecs--;
-  const el = document.getElementById('refreshCountdown');
-  if (el) el.textContent = refreshSecs;
-  if (refreshSecs <= 0) {
-    refreshSecs = 30;
+    // ── Smart auto-refresh — only during monitoring window ────────────────────
+    // During 7:30–8:45 AM: refresh every 30s (live train data)
+    // Outside window: refresh every 5 min (just keep status/history current)
+    // Midnight reset: clear stale train data from previous day
+
+    function isMonitoringWindow() {
+      const now = new Date();
+      const h = now.getHours();
+      const m = now.getMinutes();
+      const total = h * 60 + m;
+      return total >= (7 * 60 + 30) && total <= (8 * 60 + 45);
+    }
+
+    function getRefreshInterval() {
+      return 30; // only called during window anyway
+    }
+
+    function getEmptyStateMessage() {
+      const now = new Date();
+      const h = now.getHours();
+      const m = now.getMinutes();
+      const total = h * 60 + m;
+      if (total < (7 * 60 + 30)) {
+        const minsUntil = (7 * 60 + 30) - total;
+        const hrs = Math.floor(minsUntil / 60);
+        const mins = minsUntil % 60;
+        return hrs > 0
+          ? `Monitoring starts in ${hrs}h ${mins}m — next check at 7:30 AM`
+          : `Monitoring starts in ${mins} min — next check at 7:30 AM`;
+      }
+      if (total > (8 * 60 + 45)) {
+        return `Morning monitoring window has ended for today (7:45–8:30 AM) — see you tomorrow!`;
+      }
+      return `Loading live train data...`;
+    }
+
+    // Update the refresh info label
+    function updateRefreshLabel() {
+      const inWindow = isMonitoringWindow();
+      const info = document.getElementById('refreshInfo');
+      if (!info) return;
+      if (inWindow) {
+        info.innerHTML = `Auto-refreshes every 30s · Next in <span id="refreshCountdown">${refreshSecs}</span>s`;
+      } else {
+        info.innerHTML = `Live refresh paused — resumes at 7:30 AM on weekdays`;
+      }
+    }
+
+    // Update empty state message based on time of day
+    function updateEmptyState() {
+      const boards = document.querySelectorAll('#boardBody td .empty-state, #cardsGrid .empty-state');
+      boards.forEach(el => {
+        if (el.textContent.includes('No morning trains') || el.textContent.includes('Monitoring') || el.textContent.includes('Loading')) {
+          el.textContent = getEmptyStateMessage();
+        }
+      });
+    }
+
+    let refreshSecs = 30;
+    let refreshTimer = null;
+
+    function startRefreshTimer() {
+      if (refreshTimer) return; // already running
+      refreshSecs = 30;
+      updateRefreshLabel();
+      refreshTimer = setInterval(() => {
+        refreshSecs--;
+        const el = document.getElementById('refreshCountdown');
+        if (el) el.textContent = refreshSecs;
+        if (refreshSecs <= 0) {
+          refreshSecs = 30;
+          loadStatus();
+        }
+      }, 1000);
+      console.log('[Refresh] Started — monitoring window active');
+    }
+
+    function stopRefreshTimer() {
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+      }
+      console.log('[Refresh] Stopped — outside monitoring window');
+    }
+
+    // Check every minute if we should start/stop the refresh timer
+    setInterval(() => {
+      updateEmptyState();
+      if (isMonitoringWindow()) {
+        startRefreshTimer();
+      } else {
+        stopRefreshTimer();
+      }
+    }, 60000);
+
+    // Initial load — always fetch once on page open so status/history shows
     loadStatus();
-  }
-  // Re-render countdowns every second without a full API call
-  renderLiveCountdowns();
-}, 1000);
 
-// Update only the countdown numbers in place (no API call needed)
-function renderLiveCountdowns() {
-  const rows = document.querySelectorAll('#boardBody tr[data-trainid]');
-  rows.forEach(row => {
-    const trainId = row.dataset.trainid;
-    // Full re-render of board handles this; lightweight update skipped for simplicity
-  });
-}
-
-loadStatus();
-</script>
+    // Only start the live refresh timer if we're currently in the window
+    if (isMonitoringWindow()) {
+      startRefreshTimer();
+    } else {
+      updateEmptyState();
+      updateRefreshLabel();
+    }
+  </script>
 </body>
+
 </html>
