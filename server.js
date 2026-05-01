@@ -74,32 +74,36 @@ function apiUrl(path) {
 }
 
 /**
- * Fetch GTFS TripUpdates — real-time delay info for all live trips.
- * Endpoint: /api/V1/Gtfs/Feed/TripUpdates
- * Returns trip_id, stop_time_updates with arrival/departure delays per stop.
+ * Fetch next service predictions at Bronte GO stop.
+ * Endpoint: GET /api/V1/Stop/NextService/{StopCode}
+ * Returns all upcoming trips at Bronte GO with scheduled + estimated times and delays.
+ * This is the single best endpoint for our use case — gives scheduled time,
+ * estimated time, delay, and destination all in one call.
  */
-async function fetchTripUpdates() {
+async function fetchBronteNextService() {
   try {
-    const url = apiUrl('/api/V1/Gtfs/Feed/TripUpdates');
+    const url = apiUrl(`/api/V1/Stop/NextService/${CONFIG.BRONTE_STOP_CODE}`);
     const { data } = await axios.get(url, { timeout: 10000 });
-    // GTFS feed returns a FeedMessage with entity array
-    return data?.entity || [];
+    // Returns { NextService: { Lines: [ { Trips: [...] } ] } }
+    const lines = data?.NextService?.Lines || [];
+    // Flatten all trips across all lines
+    const allTrips = lines.flatMap(line => line.Trips || []);
+    return allTrips;
   } catch (err) {
-    console.error('[GO API] TripUpdates fetch failed:', err.message);
+    console.error('[GO API] NextService fetch failed:', err.message);
     return [];
   }
 }
 
 /**
- * Fetch service alerts for Lakeshore West line.
- * Endpoint: /api/V1/ServiceUpdate/ServiceAlert
- * Returns alerts broken down by route/line, station construction, elevator status.
+ * Fetch service alerts.
+ * Endpoint: GET /api/V1/ServiceUpdate/ServiceAlert/All
  */
 async function fetchServiceAlerts() {
   try {
-    const url = apiUrl('/api/V1/ServiceUpdate/ServiceAlert');
+    const url = apiUrl('/api/V1/ServiceUpdate/ServiceAlert/All');
     const { data } = await axios.get(url, { timeout: 10000 });
-    return data?.ServiceAlerts || data?.entity || [];
+    return data?.ServiceAlerts || data?.Alerts || data?.entity || [];
   } catch (err) {
     console.error('[GO API] ServiceAlerts fetch failed:', err.message);
     return [];
@@ -107,32 +111,13 @@ async function fetchServiceAlerts() {
 }
 
 /**
- * Fetch schedule for Bronte GO stop on Lakeshore West.
- * Endpoint: /api/V1/Schedule/Line/Stop/{LineCode}/{StopCode}/{Date}/{MaxRecords}
- * Returns all trips serving this stop with scheduled times.
- * We use this to know which trains to watch in the morning window.
- */
-async function fetchBronteSchedule() {
-  try {
-    const today = getTodayDateString();
-    const url = apiUrl(`/api/V1/Schedule/Line/Stop/${CONFIG.LINE_CODE}/${CONFIG.BRONTE_STOP_CODE}/${today}/10`);
-    const { data } = await axios.get(url, { timeout: 10000 });
-    return data?.Trips || [];
-  } catch (err) {
-    console.error('[GO API] Schedule fetch failed:', err.message);
-    return [];
-  }
-}
-
-/**
- * Fetch Service At A Glance for trains — live trip status including delay deviation.
- * Endpoint: /api/V1/ServiceataGlance/Trains/{LineCode}
- * Returns all live train trips on a line with delay deviation, current position etc.
- * This is the most direct source of delay info per trip.
+ * Fetch all live train trips (Service at a Glance).
+ * Endpoint: GET /api/V1/ServiceataGlance/Trains/All
+ * Used to cross-reference delay deviations by trip number.
  */
 async function fetchLiveTrains() {
   try {
-    const url = apiUrl(`/api/V1/ServiceataGlance/Trains/${CONFIG.LINE_CODE}`);
+    const url = apiUrl('/api/V1/ServiceataGlance/Trains/All');
     const { data } = await axios.get(url, { timeout: 10000 });
     return data?.Trips || [];
   } catch (err) {
@@ -142,12 +127,12 @@ async function fetchLiveTrains() {
 }
 
 /**
- * Fetch exceptions (cancelled/modified trips).
- * Endpoint: /api/V1/ServiceUpdate/ExceptionsTrain
+ * Fetch cancelled/modified train trips.
+ * Endpoint: GET /api/V1/ServiceUpdate/Exceptions/Train
  */
 async function fetchExceptions() {
   try {
-    const url = apiUrl('/api/V1/ServiceUpdate/ExceptionsTrain');
+    const url = apiUrl('/api/V1/ServiceUpdate/Exceptions/Train');
     const { data } = await axios.get(url, { timeout: 10000 });
     return data?.Exceptions || [];
   } catch (err) {
@@ -198,19 +183,19 @@ async function checkTrains() {
   console.log(`[Check] ${new Date().toLocaleTimeString('en-CA', { timeZone: 'America/Toronto' })}`);
 
   // Fetch everything in parallel
-  const [schedule, liveTrains, alerts, exceptions] = await Promise.all([
-    fetchBronteSchedule(),
+  const [nextService, liveTrains, alerts, exceptions] = await Promise.all([
+    fetchBronteNextService(),
     fetchLiveTrains(),
     fetchServiceAlerts(),
     fetchExceptions(),
   ]);
 
-  // Build a map of tripNumber → live delay from ServiceataGlance
+  // Build a map of tripNumber → delay from ServiceataGlance (seconds → minutes)
   const delayMap = {};
   for (const trip of liveTrains) {
-    const tripNum = trip.TripNumber || trip.TripNo;
+    const tripNum = String(trip.TripNumber || trip.TripNo || '');
     const delay = trip.DelayDeviation || 0;
-    if (tripNum) delayMap[tripNum] = Math.max(0, Math.round(delay / 60)); // convert seconds to mins if needed
+    if (tripNum) delayMap[tripNum] = Math.max(0, Math.round(Number(delay) / 60));
   }
 
   // Build a set of cancelled trip numbers from exceptions
@@ -220,26 +205,32 @@ async function checkTrains() {
       .map(e => String(e.TripNumber || e.TripNo))
   );
 
-  // Filter schedule to morning Bronte trains only (eastbound toward Union)
-  const morningTrips = schedule.filter(trip => {
-    const time = trip.ScheduledDepartureTime || trip.DepartureTime || trip.Time || '';
+  // Filter to morning Bronte → Union trains only
+  // NextService returns ScheduledDepartureTime, EstimatedDepartureTime, DelayMinutes
+  const morningTrips = nextService.filter(trip => {
+    const time = trip.ScheduledDepartureTime || trip.DepartureTime || '';
     return isMorningTrain(time);
   });
 
   // Build trainStatuses for dashboard + alert checking
+  // NextService already provides EstimatedDepartureTime and DelayMinutes directly
   state.trainStatuses = morningTrips.map(trip => {
     const tripNum = String(trip.TripNumber || trip.TripNo || '');
-    const scheduled = (trip.ScheduledDepartureTime || trip.DepartureTime || trip.Time || '').slice(0, 5);
-    const delayMins = delayMap[tripNum] || 0;
-    const cancelled = cancelledTrips.has(tripNum);
+    const scheduled = (trip.ScheduledDepartureTime || trip.DepartureTime || '').slice(0, 5);
+    // Prefer DelayMinutes from NextService, fall back to ServiceataGlance delayMap
+    const delayMins = Number(trip.DelayMinutes || delayMap[tripNum] || 0);
+    const cancelled = cancelledTrips.has(tripNum) || trip.Status === 'Cancelled';
+    const estimated = trip.EstimatedDepartureTime
+      ? trip.EstimatedDepartureTime.slice(0, 5)
+      : addMinsToTime(scheduled, delayMins);
     return {
       scheduled,
-      estimated: cancelled ? scheduled : addMinsToTime(scheduled, delayMins),
+      estimated: cancelled ? scheduled : estimated,
       tripId: tripNum,
       status: cancelled ? 'Cancelled' : delayMins >= CONFIG.DELAY_THRESHOLD_MINS ? 'Delayed' : 'On Time',
       delayMins,
       cancelled,
-      destination: 'Union Station',
+      destination: trip.Destination || trip.LastStopName || 'Union Station',
     };
   });
 
@@ -387,20 +378,45 @@ app.post('/api/test-sms', async (req, res) => {
 
 // Debug endpoint — tests all 4 Metrolinx API calls and returns raw responses
 // Visit: GET /api/debug in your browser to verify API key is working
-// Remove or protect this endpoint once confirmed working
 app.get('/api/debug', async (req, res) => {
   const results = {};
 
-  // 1. Live trains on LW line
+  // 1. Next service at Bronte GO — the main endpoint we use
   try {
-    const url = apiUrl(`/api/V1/ServiceataGlance/Trains/${CONFIG.LINE_CODE}`);
+    const url = apiUrl(`/api/V1/Stop/NextService/${CONFIG.BRONTE_STOP_CODE}`);
+    const { data } = await axios.get(url, { timeout: 10000 });
+    const lines = data?.NextService?.Lines || [];
+    const allTrips = lines.flatMap(l => l.Trips || []);
+    results.bronteNextService = {
+      success: true,
+      url: url.replace(CONFIG.GO_API_KEY, 'HIDDEN'),
+      linesReturned: lines.length,
+      totalTrips: allTrips.length,
+      sample: allTrips.slice(0, 4).map(t => ({
+        trip: t.TripNumber,
+        scheduled: t.ScheduledDepartureTime,
+        estimated: t.EstimatedDepartureTime,
+        delay: t.DelayMinutes,
+        destination: t.Destination || t.LastStopName,
+        status: t.Status,
+      })),
+    };
+  } catch (err) {
+    results.bronteNextService = { success: false, error: err.message };
+  }
+
+  // 2. All live trains
+  try {
+    const url = apiUrl('/api/V1/ServiceataGlance/Trains/All');
     const { data } = await axios.get(url, { timeout: 10000 });
     const trips = data?.Trips || [];
     results.liveTrains = {
       success: true,
+      url: url.replace(CONFIG.GO_API_KEY, 'HIDDEN'),
       count: trips.length,
       sample: trips.slice(0, 3).map(t => ({
-        trip: t.TripNumber || t.TripNo,
+        trip: t.TripNumber,
+        line: t.LineCode,
         delay: t.DelayDeviation,
         from: t.StartStationCode,
         to: t.EndStationCode,
@@ -410,33 +426,14 @@ app.get('/api/debug', async (req, res) => {
     results.liveTrains = { success: false, error: err.message };
   }
 
-  // 2. Schedule at Bronte GO today
-  try {
-    const today = getTodayDateString();
-    const url = apiUrl(`/api/V1/Schedule/Line/Stop/${CONFIG.LINE_CODE}/${CONFIG.BRONTE_STOP_CODE}/${today}/10`);
-    const { data } = await axios.get(url, { timeout: 10000 });
-    const trips = data?.Trips || [];
-    results.bronteSchedule = {
-      success: true,
-      date: today,
-      count: trips.length,
-      sample: trips.slice(0, 5).map(t => ({
-        trip: t.TripNumber || t.TripNo,
-        time: t.ScheduledDepartureTime || t.DepartureTime || t.Time,
-        destination: t.Destination || t.EndStationName,
-      })),
-    };
-  } catch (err) {
-    results.bronteSchedule = { success: false, error: err.message };
-  }
-
   // 3. Service alerts
   try {
-    const url = apiUrl('/api/V1/ServiceUpdate/ServiceAlert');
+    const url = apiUrl('/api/V1/ServiceUpdate/ServiceAlert/All');
     const { data } = await axios.get(url, { timeout: 10000 });
-    const alerts = data?.ServiceAlerts || data?.entity || [];
+    const alerts = data?.ServiceAlerts || data?.Alerts || data?.entity || [];
     results.serviceAlerts = {
       success: true,
+      url: url.replace(CONFIG.GO_API_KEY, 'HIDDEN'),
       count: alerts.length,
       sample: alerts.slice(0, 2),
     };
@@ -444,16 +441,17 @@ app.get('/api/debug', async (req, res) => {
     results.serviceAlerts = { success: false, error: err.message };
   }
 
-  // 4. Exceptions (cancelled/modified trips)
+  // 4. Exceptions
   try {
-    const url = apiUrl('/api/V1/ServiceUpdate/ExceptionsTrain');
+    const url = apiUrl('/api/V1/ServiceUpdate/Exceptions/Train');
     const { data } = await axios.get(url, { timeout: 10000 });
     const exceptions = data?.Exceptions || [];
     results.exceptions = {
       success: true,
+      url: url.replace(CONFIG.GO_API_KEY, 'HIDDEN'),
       count: exceptions.length,
       sample: exceptions.slice(0, 3).map(e => ({
-        trip: e.TripNumber || e.TripNo,
+        trip: e.TripNumber,
         status: e.Status,
         cancelled: e.Cancelled,
       })),
@@ -462,7 +460,6 @@ app.get('/api/debug', async (req, res) => {
     results.exceptions = { success: false, error: err.message };
   }
 
-  // Summary
   const allOk = Object.values(results).every(r => r.success);
   res.json({
     apiKeyConfigured: !!CONFIG.GO_API_KEY,
