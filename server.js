@@ -281,21 +281,46 @@ async function checkTrains() {
     }
   }
 
-  // 3. Line-wide LW service alerts
+  // 3. Line-wide LW service alerts — only categories that affect train service
+  // Excluded: Amenity (elevators, escalators), parking notices, bus detours, construction info
+  const SMS_ALERT_CATEGORIES = [
+    'Train Cancellation',
+    'Train Delay',
+    'Pre-Planned Bus Delay',   // replacement buses for train service
+    'GO Train General Service Alert',
+    'Modified Trip',
+    'Top Red Banner',          // system-wide urgent notices
+  ];
+
   const lwAlerts = alerts.filter(a => {
-    // Filter to LW line alerts or alerts mentioning Bronte GO (code BO)
+    // Must be on LW line or affect Bronte GO station specifically
     const linesMatch = (a.Lines || []).some(l => l.Code === 'LW');
     const stopsMatch = (a.Stops || []).some(s => s.Code === 'BO');
-    const textMatch = (a.SubjectEnglish || a.BodyEnglish || '').toUpperCase().includes('BRONTE');
-    return linesMatch || stopsMatch || textMatch;
+    if (!linesMatch && !stopsMatch) return false;
+
+    // Must be a category that actually impacts train travel — not elevator/amenity/parking
+    const subCat = a.SubCategory || '';
+    const cat = a.Category || '';
+    const isServiceImpact = SMS_ALERT_CATEGORIES.some(c =>
+      subCat.includes(c) || cat.includes(c)
+    );
+
+    // Also exclude pure amenity alerts (elevators, escalators, parking)
+    const isAmenityOnly = cat === 'Amenity' ||
+      subCat.includes('Elevator') ||
+      subCat.includes('Escalator') ||
+      subCat.includes('Parking') ||
+      subCat.includes('Bus Stop Location');
+
+    return isServiceImpact && !isAmenityOnly;
   });
 
   for (const alert of lwAlerts) {
-    const alertMsg = alert.SubjectEnglish || alert.BodyEnglish || alert.HeaderText || alert.Message || '';
-    const alertKey = `${new Date().toDateString()}-alert-${alertMsg.slice(0, 40)}`;
+    const alertMsg = alert.SubjectEnglish || '';
+    const alertKey = `${new Date().toDateString()}-alert-${alert.Code || alertMsg.slice(0, 40)}`;
     if (alertMsg && !state.notifiedTrips.has(alertKey)) {
       state.notifiedTrips.add(alertKey);
-      const msg = `🚨 GO Transit Alert (Lakeshore West): ${alertMsg}. Check gotransit.com for details.`;
+      const msg = `🚨 GO Train Alert (Lakeshore West): ${alertMsg}. Check gotransit.com for details.`;
       console.log('[ALERT - Line]', msg);
       await sendSMS(msg);
       state.alertsSentToday++;
