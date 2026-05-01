@@ -376,88 +376,78 @@ app.post('/api/test-sms', async (req, res) => {
   }
 });
 
-// Debug endpoint — tests all 4 Metrolinx API calls and returns raw responses
-// Visit: GET /api/debug in your browser to verify API key is working
+// Debug endpoint — tests Metrolinx API and finds correct Bronte stop code
+// Visit: GET /api/debug in your browser
 app.get('/api/debug', async (req, res) => {
   const results = {};
 
-  // 1. Next service at Bronte GO — the main endpoint we use
+  // 1. Get all stops — find the correct Bronte GO code
+  try {
+    const url = apiUrl('/api/V1/Stop/All');
+    const { data } = await axios.get(url, { timeout: 10000 });
+    const stations = data?.Stations?.Station || [];
+    const bronteMatches = stations.filter(s =>
+      (s.LocationName || '').toUpperCase().includes('BRONTE')
+    );
+    results.stopSearch = {
+      success: true,
+      totalStops: stations.length,
+      bronteMatches,
+      allLWStops: stations.filter(s =>
+        ['BR', 'BN', 'BRONTE', 'UN', 'UNION', 'OA', 'OAKVILLE', 'CL', 'CLARKSON'].includes(s.LocationCode)
+      ),
+    };
+  } catch (err) {
+    results.stopSearch = { success: false, error: err.message };
+  }
+
+  // 2. Try NextService with our current stop code
   try {
     const url = apiUrl(`/api/V1/Stop/NextService/${CONFIG.BRONTE_STOP_CODE}`);
     const { data } = await axios.get(url, { timeout: 10000 });
-    const lines = data?.NextService?.Lines || [];
-    const allTrips = lines.flatMap(l => l.Trips || []);
+    // Per API docs, Lines is a flat array of trip entries
+    const trips = data?.NextService?.Lines || [];
     results.bronteNextService = {
       success: true,
-      url: url.replace(CONFIG.GO_API_KEY, 'HIDDEN'),
-      linesReturned: lines.length,
-      totalTrips: allTrips.length,
-      sample: allTrips.slice(0, 4).map(t => ({
-        trip: t.TripNumber,
-        scheduled: t.ScheduledDepartureTime,
-        estimated: t.EstimatedDepartureTime,
-        delay: t.DelayMinutes,
-        destination: t.Destination || t.LastStopName,
-        status: t.Status,
-      })),
+      stopCodeUsed: CONFIG.BRONTE_STOP_CODE,
+      url: url.replace(CONFIG.GO_API_KEY, 'KEY_HIDDEN'),
+      tripCount: trips.length,
+      rawSample: trips.slice(0, 3),
     };
   } catch (err) {
-    results.bronteNextService = { success: false, error: err.message };
+    results.bronteNextService = {
+      success: false,
+      stopCodeUsed: CONFIG.BRONTE_STOP_CODE,
+      error: err.message,
+      statusCode: err.response?.status,
+    };
   }
 
-  // 2. All live trains
+  // 3. Live trains
   try {
     const url = apiUrl('/api/V1/ServiceataGlance/Trains/All');
     const { data } = await axios.get(url, { timeout: 10000 });
     const trips = data?.Trips || [];
     results.liveTrains = {
       success: true,
-      url: url.replace(CONFIG.GO_API_KEY, 'HIDDEN'),
       count: trips.length,
-      sample: trips.slice(0, 3).map(t => ({
-        trip: t.TripNumber,
-        line: t.LineCode,
-        delay: t.DelayDeviation,
-        from: t.StartStationCode,
-        to: t.EndStationCode,
-      })),
+      sample: trips.slice(0, 2),
     };
   } catch (err) {
-    results.liveTrains = { success: false, error: err.message };
+    results.liveTrains = { success: false, error: err.message, statusCode: err.response?.status };
   }
 
-  // 3. Service alerts
+  // 4. Service alerts
   try {
     const url = apiUrl('/api/V1/ServiceUpdate/ServiceAlert/All');
     const { data } = await axios.get(url, { timeout: 10000 });
-    const alerts = data?.ServiceAlerts || data?.Alerts || data?.entity || [];
     results.serviceAlerts = {
       success: true,
-      url: url.replace(CONFIG.GO_API_KEY, 'HIDDEN'),
-      count: alerts.length,
-      sample: alerts.slice(0, 2),
+      rawKeys: Object.keys(data || {}),
+      sample: data,
     };
   } catch (err) {
-    results.serviceAlerts = { success: false, error: err.message };
-  }
-
-  // 4. Exceptions
-  try {
-    const url = apiUrl('/api/V1/ServiceUpdate/Exceptions/Train');
-    const { data } = await axios.get(url, { timeout: 10000 });
-    const exceptions = data?.Exceptions || [];
-    results.exceptions = {
-      success: true,
-      url: url.replace(CONFIG.GO_API_KEY, 'HIDDEN'),
-      count: exceptions.length,
-      sample: exceptions.slice(0, 3).map(e => ({
-        trip: e.TripNumber,
-        status: e.Status,
-        cancelled: e.Cancelled,
-      })),
-    };
-  } catch (err) {
-    results.exceptions = { success: false, error: err.message };
+    results.serviceAlerts = { success: false, error: err.message, statusCode: err.response?.status };
   }
 
   const allOk = Object.values(results).every(r => r.success);
