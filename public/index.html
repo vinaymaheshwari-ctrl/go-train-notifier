@@ -1021,7 +1021,7 @@
           <tbody id="boardBody">
             <tr>
               <td colspan="5">
-                <div class="empty-state">Monitoring starts at 7:30 AM on weekdays</div>
+                <div class="empty-state">Loading...</div>
               </td>
             </tr>
           </tbody>
@@ -1031,7 +1031,7 @@
       <!-- Cards View -->
       <div id="cardsView" class="hidden">
         <div class="cards-grid" id="cardsGrid">
-          <div class="empty-state" style="grid-column:1/-1">Monitoring starts at 7:30 AM on weekdays</div>
+          <div class="empty-state" style="grid-column:1/-1">Loading...</div>
         </div>
       </div>
     </div>
@@ -1060,8 +1060,7 @@
       <div class="step">
         <div class="step-num">3</div>
         <div class="step-text"><b>Set up <a href="https://cron-job.org" target="_blank">cron-job.org</a></b> — POST to
-          <span class="code-inline">/api/trigger?key=YOUR_SECRET</span> every 2 min, Hours 7–8, Mon–Fri.
-        </div>
+          <span class="code-inline">/api/trigger?key=YOUR_SECRET</span> every 2 min, Hours 7–8, Mon–Fri.</div>
       </div>
       <div class="step">
         <div class="step-num">4</div>
@@ -1185,7 +1184,7 @@
     function renderBoard(trains) {
       const tbody = document.getElementById('boardBody');
       if (!trains.length) {
-        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">No morning trains found — check back after GO API key is added</div></td></tr>';
+        tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">${getEmptyStateMessage()}</div></td></tr>`;
         return;
       }
       tbody.innerHTML = trains.map(train => {
@@ -1221,7 +1220,7 @@
     function renderCards(trains) {
       const grid = document.getElementById('cardsGrid');
       if (!trains.length) {
-        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">No morning trains found</div>';
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">${getEmptyStateMessage()}</div>`;
         return;
       }
       grid.innerHTML = trains.map(train => {
