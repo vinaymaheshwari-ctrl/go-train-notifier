@@ -385,6 +385,93 @@ app.post('/api/test-sms', async (req, res) => {
   }
 });
 
+// Debug endpoint — tests all 4 Metrolinx API calls and returns raw responses
+// Visit: GET /api/debug in your browser to verify API key is working
+// Remove or protect this endpoint once confirmed working
+app.get('/api/debug', async (req, res) => {
+  const results = {};
+
+  // 1. Live trains on LW line
+  try {
+    const url = apiUrl(`/api/V1/ServiceataGlance/Trains/${CONFIG.LINE_CODE}`);
+    const { data } = await axios.get(url, { timeout: 10000 });
+    const trips = data?.Trips || [];
+    results.liveTrains = {
+      success: true,
+      count: trips.length,
+      sample: trips.slice(0, 3).map(t => ({
+        trip: t.TripNumber || t.TripNo,
+        delay: t.DelayDeviation,
+        from: t.StartStationCode,
+        to: t.EndStationCode,
+      })),
+    };
+  } catch (err) {
+    results.liveTrains = { success: false, error: err.message };
+  }
+
+  // 2. Schedule at Bronte GO today
+  try {
+    const today = getTodayDateString();
+    const url = apiUrl(`/api/V1/Schedule/Line/Stop/${CONFIG.LINE_CODE}/${CONFIG.BRONTE_STOP_CODE}/${today}/10`);
+    const { data } = await axios.get(url, { timeout: 10000 });
+    const trips = data?.Trips || [];
+    results.bronteSchedule = {
+      success: true,
+      date: today,
+      count: trips.length,
+      sample: trips.slice(0, 5).map(t => ({
+        trip: t.TripNumber || t.TripNo,
+        time: t.ScheduledDepartureTime || t.DepartureTime || t.Time,
+        destination: t.Destination || t.EndStationName,
+      })),
+    };
+  } catch (err) {
+    results.bronteSchedule = { success: false, error: err.message };
+  }
+
+  // 3. Service alerts
+  try {
+    const url = apiUrl('/api/V1/ServiceUpdate/ServiceAlert');
+    const { data } = await axios.get(url, { timeout: 10000 });
+    const alerts = data?.ServiceAlerts || data?.entity || [];
+    results.serviceAlerts = {
+      success: true,
+      count: alerts.length,
+      sample: alerts.slice(0, 2),
+    };
+  } catch (err) {
+    results.serviceAlerts = { success: false, error: err.message };
+  }
+
+  // 4. Exceptions (cancelled/modified trips)
+  try {
+    const url = apiUrl('/api/V1/ServiceUpdate/ExceptionsTrain');
+    const { data } = await axios.get(url, { timeout: 10000 });
+    const exceptions = data?.Exceptions || [];
+    results.exceptions = {
+      success: true,
+      count: exceptions.length,
+      sample: exceptions.slice(0, 3).map(e => ({
+        trip: e.TripNumber || e.TripNo,
+        status: e.Status,
+        cancelled: e.Cancelled,
+      })),
+    };
+  } catch (err) {
+    results.exceptions = { success: false, error: err.message };
+  }
+
+  // Summary
+  const allOk = Object.values(results).every(r => r.success);
+  res.json({
+    apiKeyConfigured: !!CONFIG.GO_API_KEY,
+    allEndpointsWorking: allOk,
+    checkedAt: new Date().toLocaleTimeString('en-CA', { timeZone: 'America/Toronto' }),
+    results,
+  });
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
